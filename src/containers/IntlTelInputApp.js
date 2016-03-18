@@ -71,6 +71,8 @@ export default class IntlTelInputApp extends Component {
   constructor(props) {
     super(props);
 
+    this.libphonenumberVersion = '7.2.3';
+
     this.autoCountry = '';
     this.tempCountry = '';
     this.startedLoadingAutoCountry = false;
@@ -613,28 +615,53 @@ export default class IntlTelInputApp extends Component {
   }
 
   loadUtils() {
+    let libphonenumberScript;
+
+    if (typeof Storage !== 'undefined') {
+      const utilsVersion = window.localStorage.getItem('react-intl-tel-input-utils-version');
+      if (utilsVersion === this.libphonenumberVersion) {
+        libphonenumberScript = window.localStorage.getItem('react-intl-tel-input-utils');
+
+        if (libphonenumberScript) {
+          this.execUtilsScript(libphonenumberScript);
+          this.utilsScriptDeferred.resolve();
+          return;
+        }
+      }
+    }
+
     const request = new XMLHttpRequest();
     request.open('GET', this.props.utilsScript, true);
 
     request.onload = () => {
       if (request.status >= 200 && request.status < 400) {
-        const data = request.responseText;
+        libphonenumberScript = request.responseText;
 
-        if (data) {
-          if (window.execScript) {
-            window.execScript(data);
-          } else {
-            /* eslint-disable */
-            window.eval(data);
-            /* eslint-enable */
+        if (libphonenumberScript) {
+          if (typeof Storage !== 'undefined') {
+            window.localStorage.setItem('react-intl-tel-input-utils-version',
+                                        this.libphonenumberVersion);
+            window.localStorage.setItem('react-intl-tel-input-utils',
+                                        libphonenumberScript);
           }
         }
 
+        this.execUtilsScript(libphonenumberScript);
         this.utilsScriptDeferred.resolve();
       }
     };
 
     request.send();
+  }
+
+  execUtilsScript(script) {
+    if (window.execScript) {
+      window.execScript(script);
+    } else {
+      /* eslint-disable */
+      window.eval(script);
+      /* eslint-enable */
+    }
   }
 
   // prepare all of the country data, including onlyCountries and preferredCountries options
